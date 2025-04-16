@@ -1,0 +1,51 @@
+#!/bin/bash
+
+# Variables
+VM_NAME="example-vm"
+RESOURCE_GROUP="example-resources"
+LOCATION="eastus"
+VNET_NAME="example-vnet"
+SUBNET_NAME="example-subnet"
+INSTANCE_TYPE="t2.micro"
+ZONE="us-central1-a"
+PROJECT_ID="your-gcp-project-id"
+IMAGE="UbuntuServer:18.04-LTS:latest"
+
+# Azure VM Creation
+create_azure_vm() {
+  echo "Creating VM in Azure..."
+  az group create --name $RESOURCE_GROUP --location $LOCATION
+  az network vnet create --resource-group $RESOURCE_GROUP --name $VNET_NAME --address-prefix 10.0.0.0/16 \
+    --subnet-name $SUBNET_NAME --subnet-prefix 10.0.1.0/24
+  az vm create --resource-group $RESOURCE_GROUP --name $VM_NAME --image $IMAGE \
+    --admin-username azureuser --admin-password 'P@ssw0rd123!' --vnet-name $VNET_NAME \
+    --subnet $SUBNET_NAME --public-ip-sku Standard --size Standard_B1s
+  echo "Azure VM Created!"
+}
+
+# AWS VM Creation
+create_aws_vm() {
+  echo "Creating VM in AWS..."
+  aws ec2 create-security-group --group-name "$VM_NAME-sg" --description "Security group for $VM_NAME"
+  GROUP_ID=$(aws ec2 describe-security-groups --group-names "$VM_NAME-sg" --query "SecurityGroups[0].GroupId" --output text)
+  aws ec2 authorize-security-group-ingress --group-id $GROUP_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
+  aws ec2 run-instances --image-id ami-0c02fb55956c7d316 --count 1 --instance-type $INSTANCE_TYPE \
+    --key-name your-key-pair-name --security-group-ids $GROUP_ID --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$VM_NAME}]"
+  echo "AWS VM Created!"
+}
+
+# GCP VM Creation
+create_gcp_vm() {
+  echo "Creating VM in GCP..."
+  gcloud compute instances create $VM_NAME --project $PROJECT_ID --zone $ZONE \
+    --machine-type e2-micro --subnet default --image-family ubuntu-1804-lts \
+    --image-project ubuntu-os-cloud --tags http-server,https-server
+  echo "GCP VM Created!"
+}
+
+# Main Script
+echo "Starting VM creation in Azure, AWS, and GCP..."
+create_azure_vm
+create_aws_vm
+create_gcp_vm
+echo "VM creation completed!"
